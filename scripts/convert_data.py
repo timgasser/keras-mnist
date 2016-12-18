@@ -106,7 +106,7 @@ def load_images(filename, magic_num):
         image_bytes = struct.unpack_from(img_format, data, ptr)
         images.append(image_bytes)
         ptr += img_size
-        print('Read image # {} - {}'.format(len(images), images[-1]))
+        # print('Read image # {} - {}'.format(len(images), images[-1]))
 
     return images
 
