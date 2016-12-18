@@ -2,12 +2,12 @@ import sys
 import numpy as np
 import scipy as sp
 import struct
-import tqdm
+from tqdm import tqdm
 import pickle
 
 # Filename definitions
 X_TRAIN = 'train-images.idx3-ubyte'
-Y_TRAIN = 't10k-labels.idx1-ubyte'
+Y_TRAIN = 'train-labels.idx1-ubyte'
 
 X_TEST = 't10k-images.idx3-ubyte'
 Y_TEST =  't10k-labels.idx1-ubyte'
@@ -99,13 +99,14 @@ def load_images(filename, magic_num):
 
     # Move the pointer to the start of actual image data
     ptr = hdr_size
-    images = list()
+    images = np.zeros((N, n_row, n_col), dtype=np.uint8)
     # image_cnt = 0
 
-    while ptr < file_size:
-        image_bytes = struct.unpack_from(img_format, data, ptr)
-        images.append(image_bytes)
-        ptr += img_size
+    for i in tqdm(range(N)):
+        image_bytes = struct.unpack_from(img_format, data, 16 + (i * img_size))
+        image = np.asarray(image_bytes)
+        image = image.reshape(n_row, n_col) # todo ! Check the row/col order of reshape
+        images[i, :, :] = np.asarray(image)
         # print('Read image # {} - {}'.format(len(images), images[-1]))
 
     return images
@@ -126,12 +127,11 @@ def load_labels(filename, magic_num):
     file_size = 8 + N
 
     ptr = 8 # Labels have 8-byte header
-    labels = list()
+    labels = np.zeros((N,1), np.uint8)
 
-    while ptr < file_size:
-        label, = struct.unpack_from('>B', data, ptr)
-        labels.append(label)
-        ptr += 1
+    for i in tqdm(range(N)):
+        label, = struct.unpack_from('>B', data, 8 + i)
+        labels[i,:] = label
 
     return labels
 
