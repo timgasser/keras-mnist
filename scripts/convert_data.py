@@ -6,11 +6,11 @@ from tqdm import tqdm
 import pickle
 
 # Filename definitions
-X_TRAIN = 'train-images.idx3-ubyte'
-Y_TRAIN = 'train-labels.idx1-ubyte'
+X_TRAIN = 'train-images-idx3-ubyte'
+Y_TRAIN = 'train-labels-idx1-ubyte'
 
-X_TEST = 't10k-images.idx3-ubyte'
-Y_TEST =  't10k-labels.idx1-ubyte'
+X_TEST = 't10k-images-idx3-ubyte'
+Y_TEST =  't10k-labels-idx1-ubyte'
 
 INPUT_DIR = '../input/'
 
