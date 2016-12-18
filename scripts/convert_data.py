@@ -3,6 +3,7 @@ import numpy as np
 import scipy as sp
 import struct
 import tqdm
+import pickle
 
 # Filename definitions
 X_TRAIN = 'train-images.idx3-ubyte'
@@ -13,6 +14,24 @@ Y_TEST =  't10k-labels.idx1-ubyte'
 
 INPUT_DIR = '../input/'
 
+# Common image file settings
+MAGIC_X_TRAIN = 2051
+MAGIC_Y_TRAIN = 2049
+MAGIC_X_TEST = 2051
+MAGIC_Y_TEST = 2049
+
+def main(argv=None):
+    '''Main function called with arguments'''
+
+    if argv is None:
+        argv = sys.argv
+
+    convert_train_images()
+    convert_test_images()
+    convert_train_labels()
+    convert_test_labels()
+
+    return 0
 
 def check_hdr(format, handle, offset, expected, name):
     ''' Checks a correct value exists in binary file using struct.unpack
@@ -29,7 +48,32 @@ def check_hdr(format, handle, offset, expected, name):
     return True
 
 
-def load_train_images(filename):
+def convert_train_images():
+    ''' Saves out training images as a pickle file '''
+    filename = INPUT_DIR + X_TRAIN
+    images = load_images(filename, MAGIC_X_TRAIN)
+    pickle.dump(images, open(filename + '.pkl', 'wb'))
+
+def convert_test_images():
+    ''' Saves out training images as a pickle file '''
+    filename = INPUT_DIR + X_TEST
+    images = load_images(filename, MAGIC_X_TEST)
+    pickle.dump(images, open(filename + '.pkl', 'wb'))
+
+def convert_train_labels():
+    '''Save out labels as pickle file'''
+    filename = INPUT_DIR + Y_TRAIN
+    labels = load_labels(filename, MAGIC_Y_TRAIN)
+    pickle.dump(labels, open(filename + '.pkl', 'wb'))
+
+def convert_test_labels():
+    '''Save out labels as pickle file'''
+    filename = INPUT_DIR + Y_TEST
+    labels = load_labels(filename, MAGIC_Y_TEST)
+    pickle.dump(labels, open(filename + '.pkl', 'wb'))
+
+
+def load_images(filename, magic_num):
     ''' Loads training images from `filename`
     INPUT: Filename to load images from
     RETURNS: List of image array data
@@ -39,20 +83,19 @@ def load_train_images(filename):
         data = f.read()
         print('Loaded file {} of length {}'.format(filename, len(data)))
 
-
-    N = 60000
-    n_row = 28
-    n_col = 28
+    N, = struct.unpack_from('>i', data, 4)
+    n_row, = struct.unpack_from('>i', data, 8)
+    n_col, = struct.unpack_from('>i', data, 12)
     hdr_size = 16 # in bytes
 
     img_size = n_col * n_row
     file_size = hdr_size + (N * img_size)
     img_format =  'B' * img_size
 
-    assert check_hdr('>i', data, 0, 2051, 'magic number')
-    assert check_hdr('>i', data, 4, N, 'number of images')
-    assert check_hdr('>i', data, 8, n_row, 'number of rows')
-    assert check_hdr('>i', data, 12, n_col, 'number of columns')
+    assert check_hdr('>i', data, 0, magic_num, 'magic number')
+    # assert check_hdr('>i', data, 4, N, 'number of images')
+    # assert check_hdr('>i', data, 8, n_row, 'number of rows')
+    # assert check_hdr('>i', data, 12, n_col, 'number of columns')
 
     # Move the pointer to the start of actual image data
     ptr = hdr_size
@@ -69,7 +112,29 @@ def load_train_images(filename):
 
 
 
+def load_labels(filename, magic_num):
+    ''' Loads labels images from `filename`
+    INPUT: Filename to load labels from
+    RETURNS: List of labels
+    '''
+    with open(filename, 'rb') as f:
+        data = f.read()
+        print('Loaded file {} of length {}'.format(filename, len(data)))
+
+    assert check_hdr('>i', data, 0, magic_num, 'magic number')
+    N, = struct.unpack_from('>i', data, 4)
+    file_size = 8 + N
+
+    ptr = 8 # Labels have 8-byte header
+    labels = list()
+
+    while ptr < file_size:
+        label, = struct.unpack_from('>B', data, ptr)
+        labels.append(label)
+        ptr += 1
+
+    return labels
+
 if __name__ == '__main__':
 
-    load_train_images(INPUT_DIR + X_TRAIN)
-    print('main')
+    sys.exit(main())
