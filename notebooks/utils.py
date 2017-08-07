@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 from collections import namedtuple
 import pickle
@@ -8,7 +10,7 @@ from sklearn.preprocessing import LabelBinarizer
 # Relevant layers in keras
 from keras.models import Sequential
 from keras.layers import Conv2D, Dense, Activation, AveragePooling2D, Flatten
-
+from keras.callbacks import LearningRateScheduler
 
 # Utility functions for the MNIST notebook
 
@@ -174,15 +176,20 @@ class ModelEvaluator(object):
         Wrapper method to create, train and optionally CV, and check performance on test set
         """
 
-        def lr_value(self, epoch):
+        def lr_value(epoch):
             """
             Returns the learning rate based on the epoch
             """
             if epoch <= 2:
-                return 0.0005
+                return 0.01
             elif epoch <= 5:
-                return 0.0002
-            elif epoch <= 
+                return 0.005
+            elif epoch <= 8:
+                return 0.001
+            elif epoch <= 12:
+                return 0.0005
+            else:
+                return 0.00001
 
         print('Compiling model')
         if verbose:
@@ -199,19 +206,62 @@ class ModelEvaluator(object):
                             validation_data=(X_test, y_test),
                             batch_size=batch_size,
                             epochs=epochs, 
-                            callbacks=[lr_scheduler],
+                            # callbacks=[LearningRateScheduler(lr_value)],  
                             verbose=1 if verbose else 0)
 
         print('Evaluating model')
         score = model.evaluate(X_test, y_test, batch_size=batch_size)
+        train_error = 1.0 - history.history['acc'][-1]
         test_error = 1.0 - score[1]
 
-        print('Test error: {:.4f}'.format(test_error))
+        train_error_pct = train_error * 100.0
+        test_error_pct = test_error * 100.0
+
+        print('\Test error %age: {:.4f}. Train error %age: {:.4f}'.format(test_error_pct, train_error_pct))
 
         if verbose:
-            print('Test results: Loss = {:.4f}, Error = {:.4f}'.format(score[0], test_error))
+            print('\nTest results: Loss = {:.4f}, Error = {:.4f}'.format(score[0], test_error))
                 
         self.models[tag] = model
-        self.results[tag] = test_error
+        self.results[tag] = {'train_error_pct': train_error_pct,
+                             'test_error_pct': test_error_pct}
         self.history[tag] = history.history
 
+
+    def plot_history(self, hist):
+        """ 
+        Plots the history object returned by the .fit() call
+        """
+        for metric in ('acc', 'loss', 'val_acc', 'val_loss'):
+            assert metric in hist.keys()
+        
+        hist_df = pd.DataFrame(hist)
+        fig, axes = plt.subplots(1,2,figsize=(14, 6))
+
+        hist_df['err_pct'] = 100.0 * (1 - hist_df['acc'])
+        hist_df['val_err_pct'] = 100.0 * (1 - hist_df['val_acc'])
+        
+        hist_df[['val_err_pct', 'err_pct']].plot.line(ax=axes[0])
+        hist_df[['val_loss', 'loss']].plot.line(ax=axes[1])
+        axes[0].set(title="Error during training", ylabel="Error %age")
+        axes[0].legend(labels=["Test", "Training"])
+        axes[1].set(title="Loss during training", ylabel="Loss")
+        axes[1].legend(labels=["Test", "Training"])
+    
+        for ax in axes:
+            ax.set_xticks(range(hist_df.shape[0]))
+            ax.set(xlabel="epoch")
+            
+    def report(self, tag):
+        """
+        Reports relevant information on the model from the training and evaluation
+        """
+
+        assert tag in self.models, "Error - can't find model {} in {}".format(tag, self.models.keys())
+        results = self.results[tag]
+        history = self.history[tag]
+
+        print("Model {}. Train error %age: {:.2f}, test error %age: {:.2f}".format(tag, 
+              results['train_error_pct'], results['test_error_pct']))
+
+        self.plot_history(history)
